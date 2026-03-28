@@ -65,7 +65,7 @@ class WindowManager {
       ...MAIN_WINDOW_SIZE,
       minWidth: 600,
       minHeight: 480,
-      title: 'Quick Translate',
+      title: 'NextG Translate',
       show: false,
       webPreferences: {
         preload: PRELOAD_PATH,

@@ -1,8 +1,8 @@
 {
-  "name": "quick-translate",
-  "productName": "Quick Translate",
+  "name": "nextg-translate",
+  "productName": "NextG Translate",
   "version": "1.0.0",
-  "description": "Desktop quick-translate app for Vietnamese <-> English",
+  "description": "Desktop NextG Translate app for Vietnamese <-> English",
   "main": ".vite/build/main.js",
   "private": true,
   "scripts": {

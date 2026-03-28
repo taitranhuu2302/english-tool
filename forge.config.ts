@@ -10,12 +10,12 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    name: 'QuickTranslate',
-    executableName: 'quick-translate',
+    name: 'NextGTranslate',
+    executableName: 'nextg-translate',
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({ name: 'QuickTranslate' }),
+    new MakerSquirrel({ name: 'NextGTranslate' }),
     new MakerZIP({}, ['darwin']),
     new MakerRpm({}),
     new MakerDeb({}),

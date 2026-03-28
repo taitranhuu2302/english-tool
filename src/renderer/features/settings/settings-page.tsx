@@ -70,7 +70,7 @@ export function SettingsPage() {
 
           <Separator />
 
-          <SettingRow label="Quick translate target" description="Target language when using the global shortcut">
+          <SettingRow label="NextG Translate target" description="Target language when using the global shortcut">
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
@@ -120,7 +120,7 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <ShortcutInput
-            label="Quick Translate"
+            label="NextG Translate"
             settingKey="quickTranslateShortcut"
             currentValue={settings.quickTranslateShortcut}
           />
@@ -142,10 +142,10 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Quick translate behavior */}
+      {/* NextG Translate popup behavior */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Quick Translate Behavior</CardTitle>
+          <CardTitle className="text-base">NextG Translate behavior</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <SettingRow

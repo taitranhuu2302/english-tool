@@ -8,7 +8,7 @@ import { Kbd, KbdGroup } from '../../../components/ui/kbd';
 import { cn } from '../../../lib/utils';
 import { useTranslate } from './use-translate';
 import { useSettings } from '../settings/use-settings';
-import { showCopySuccess, showError } from '../../lib/toast';
+import { showError } from '../../lib/toast';
 import { bridge } from '../../lib/bridge';
 import type { ManualDirection, TranslateSource } from '../../../shared/types';
 import { isOk, isErr } from '../../../shared/types';
@@ -29,6 +29,7 @@ export function TranslatePage() {
   );
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
+  const [showCopiedTip, setShowCopiedTip] = useState(false);
 
   const { mutateAsync: translate, isPending } = useTranslate();
 
@@ -57,6 +58,10 @@ export function TranslatePage() {
   }, []);
 
   useEffect(() => {
+    setShowCopiedTip(false);
+  }, [output]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return;
       if (e.key.toLowerCase() !== 's') return;
@@ -70,7 +75,10 @@ export function TranslatePage() {
   function handleCopy() {
     if (!output) return;
     void navigator.clipboard.writeText(output).then(
-      () => showCopySuccess(),
+      () => {
+        setShowCopiedTip(true);
+        window.setTimeout(() => setShowCopiedTip(false), 1500);
+      },
       () => showError('Could not copy to clipboard'),
     );
   }
@@ -198,17 +206,27 @@ export function TranslatePage() {
                 )}
               </div>
               <div className="flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={handleCopy}
-                  disabled={!output}
-                  aria-label="Copy translation to clipboard"
-                >
-                  <Copy data-icon="inline-start" />
-                  Copy
-                </Button>
+                <div className="relative">
+                  {showCopiedTip && (
+                    <span
+                      role="status"
+                      className="absolute bottom-full right-0 mb-1 rounded-md bg-foreground px-2 py-1 text-[10px] font-medium text-background shadow-md animate-in fade-in-0 zoom-in-95"
+                    >
+                      Copied
+                    </span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={handleCopy}
+                    disabled={!output}
+                    aria-label="Copy translation to clipboard"
+                  >
+                    <Copy data-icon="inline-start" />
+                    Copy
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

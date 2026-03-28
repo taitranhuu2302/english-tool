@@ -1,0 +1,122 @@
+# Hướng dẫn build NextG Translate
+
+Tài liệu này mô tả cách **cài đặt môi trường**, **chạy dev**, và **đóng gói** ứng dụng desktop (Electron Forge + Vite).
+
+---
+
+## Yêu cầu
+
+| Công cụ | Phiên bản gợi ý |
+|--------|------------------|
+| Node.js | ≥ 18 |
+| npm | ≥ 9 |
+
+Cài dependency:
+
+```bash
+npm install
+```
+
+---
+
+## Chạy khi phát triển (không build installer)
+
+```bash
+npm start
+```
+
+Lệnh này chạy `electron-forge start`: build tạm main/preload/renderer, bật Electron với Vite HMR. Dùng khi sửa code.
+
+---
+
+## Kiểm tra trước khi đóng gói (khuyến nghị)
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+```
+
+---
+
+## Build đóng gói (Electron Forge)
+
+Dự án dùng **@electron-forge/plugin-vite** để bundle `src/main.ts`, `src/preload.ts`, và hai renderer (`main_window`, `quick_window`). Cấu hình nằm trong `forge.config.ts`.
+
+### 1. `package` — chỉ đóng gói app (thư mục chạy được)
+
+Tạo bản **chưa** làm installer, thường dùng để kiểm tra nhanh:
+
+```bash
+npm run package
+```
+
+Kết quả: thư mục app trong `out/` (tên thư mục phụ thuộc Forge; thường dạng `out/nextg-translate-darwin-arm64/` hoặc tương tự theo platform).
+
+### 2. `make` — tạo bản cài / nén theo nền tảng
+
+Tạo **artifact** (ZIP, Squirrel, deb, rpm, …) theo **makers** trong `forge.config.ts`:
+
+| Maker | Nền tảng | Đầu ra điển hình |
+|-------|-----------|-------------------|
+| `MakerZIP` | macOS (`darwin`) | File `.zip` |
+| `MakerSquirrel` | Windows (`win32`) | Installer Squirrel |
+| `MakerDeb` | Linux | `.deb` |
+| `MakerRpm` | Linux | `.rpm` |
+
+**Build trên chính máy bạn (theo OS hiện tại):**
+
+```bash
+npm run make
+```
+
+**Chỉ định platform** (cần môi trường build phù hợp; trên macOS thường chỉ build được `darwin` trừ khi cấu hình cross-compile):
+
+```bash
+# macOS — ZIP
+npm run make -- --platform=darwin
+
+# Windows — Squirrel (chạy trên máy Windows hoặc CI Windows)
+npm run make -- --platform=win32
+
+# Linux — deb/rpm
+npm run make -- --platform=linux
+```
+
+**Thư mục output:** `out/make/` (và có thể có `out/` cho bước package trung gian).
+
+### 3. `publish` — đẩy bản release (tùy cấu hình)
+
+```bash
+npm run publish
+```
+
+Chỉ dùng khi đã cấu hình publisher trong Forge (token, bucket, v.v.). Mặc định có thể chưa dùng được nếu chưa setup.
+
+---
+
+## Thông tin từ `forge.config.ts`
+
+- **Tên app đóng gói:** `NextGTranslate` (packager `name`), executable `nextg-translate`.
+- **ASAR:** bật (`asar: true`).
+- **Hai cửa sổ renderer:** `main_window` (`index.html`), `quick_window` (`index-quick.html`).
+
+---
+
+## Gặp lỗi khi build
+
+1. **Lỗi TypeScript / ESLint:** chạy `npm run typecheck` và `npm run lint`.
+2. **Thiếu dependency native:** Forge có `@electron-forge/plugin-auto-unpack-natives` trong repo — nếu thêm package có binary, đọc log `make` để xử lý.
+3. **Build Windows trên macOS:** Squirrel thường cần build trên Windows hoặc CI tương ứng; không ép được dễ dàng như ZIP đơn giản.
+
+---
+
+## Tóm tắt lệnh
+
+| Mục đích | Lệnh |
+|----------|------|
+| Dev có HMR | `npm start` |
+| Chỉ package (folder chạy được) | `npm run package` |
+| Tạo installer / ZIP / deb / rpm | `npm run make` |
+
+Chi tiết tính năng app và quyền hệ thống (Accessibility, v.v.) xem [README.md](./README.md).

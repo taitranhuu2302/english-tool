@@ -1,16 +1,16 @@
-# Quick Translate
+# NextG Translate
 
-A desktop quick-translate app for **Vietnamese ↔ English**, built with Electron + React + TypeScript.
+A desktop **NextG Translate** app for **Vietnamese ↔ English**, built with Electron + React + TypeScript.
 
 ---
 
 ## Features
 
 - **Manual translation** — translate words, paragraphs, or long plain text; swap direction; copy output
-- **Quick Translate** — press a global shortcut while text is selected in any app; a compact popup shows the translation instantly
-- **Global shortcuts** — toggle show/hide the main window; trigger quick translate from anywhere
+- **NextG Translate (popup)** — press a global shortcut while text is selected in any app; a compact popup shows the translation instantly
+- **Global shortcuts** — toggle show/hide the main window; trigger popup translate from anywhere
 - **Custom shortcuts** — change both shortcuts from Settings; validated and registered with rollback on failure
-- **System tray** — app lives in the tray when minimized; Show/Hide, Quick Translate, Settings, Quit
+- **System tray** — app lives in the tray when minimized; Show/Hide, NextG Translate, Settings, Quit
 - **Persistent settings** — all preferences stored locally in your OS user data directory
 
 ---
@@ -70,7 +70,7 @@ src/
 
 ```bash
 git clone <repo>
-cd quick-translate
+cd nextg-translate
 npm install
 ```
 
@@ -117,7 +117,11 @@ Tests cover:
 
 ---
 
-## Packaging
+## Packaging & build
+
+Full step-by-step (Vietnamese): **[BUILD.md](./BUILD.md)** — `npm run package`, `npm run make`, output paths, and `forge.config` notes.
+
+Quick reference:
 
 **macOS (zip):**
 ```bash
@@ -134,13 +138,13 @@ npm run make -- --platform win32
 npm run make -- --platform linux
 ```
 
-Outputs are in `out/make/`.
+Artifacts land under `out/make/` (and packaged app under `out/`).
 
 ---
 
-## Native Automation — Quick Translate Capture
+## Native Automation — Popup translate capture
 
-The Quick Translate shortcut captures selected text from another app by:
+The NextG Translate shortcut captures selected text from another app by:
 
 1. Snapshotting the current clipboard
 2. Simulating the OS copy shortcut (Cmd+C / Ctrl+C) in the previously focused app
@@ -157,7 +161,7 @@ This is handled by `ShellNativeInputAdapter` which uses:
 On macOS, simulating keystrokes via AppleScript requires the app to have **Accessibility access**:
 
 1. Open **System Settings → Privacy & Security → Accessibility**
-2. Enable **Quick Translate**
+2. Enable **NextG Translate**
 
 Without this permission, the capture will fail. The app will show a clear error message in the popup explaining this.
 

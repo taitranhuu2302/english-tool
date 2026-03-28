@@ -16,11 +16,11 @@ function buildMenu(mainVisible: boolean): Menu {
   const wm = getWindowManager();
   return Menu.buildFromTemplate([
     {
-      label: mainVisible ? 'Hide Quick Translate' : 'Show Quick Translate',
+      label: mainVisible ? 'Hide NextG Translate' : 'Show NextG Translate',
       click: () => wm.toggleMain(),
     },
     {
-      label: 'Quick Translate Now',
+      label: 'NextG Translate Now',
       click: () => appBus.emit('quick-translate-trigger'),
     },
     { type: 'separator' },
@@ -61,7 +61,7 @@ export function createTray(): void {
   }
 
   tray = new Tray(icon);
-  tray.setToolTip('Quick Translate');
+  tray.setToolTip('NextG Translate');
 
   const wm = getWindowManager();
   const mainWin = wm.getMainWindow();
