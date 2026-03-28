@@ -1,0 +1,204 @@
+import { app, BrowserWindow, screen, shell } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
+
+// Injected by Electron Forge VitePlugin
+declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
+declare const MAIN_WINDOW_VITE_NAME: string;
+declare const QUICK_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
+declare const QUICK_WINDOW_VITE_NAME: string;
+
+/** Preload output is `.vite/build/preload.js`; `__dirname` is usually that folder but can be `.vite` in some runs. */
+function resolvePreloadPath(): string {
+  const sameDir = path.join(__dirname, 'preload.js');
+  const underBuild = path.join(__dirname, 'build', 'preload.js');
+  if (fs.existsSync(sameDir)) return sameDir;
+  if (fs.existsSync(underBuild)) return underBuild;
+  return sameDir;
+}
+
+const PRELOAD_PATH = resolvePreloadPath();
+
+/** Unpackaged app = local development (Forge start / not `electron-forge package`) */
+const isDev = !app.isPackaged;
+
+/** Default window tuned for compact translate UI; content scrolls inside the tab */
+const MAIN_WINDOW_SIZE = { width: 720, height: 520 };
+/** Compact floating panel; content scrolls inside */
+const QUICK_WINDOW_SIZE = { width: 320, height: 240 };
+
+const CURSOR_OFFSET = 12;
+
+function clampQuickWindowToWorkArea(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): [number, number] {
+  const display = screen.getDisplayNearestPoint({ x, y });
+  const { workArea } = display;
+  const maxX = workArea.x + workArea.width - width;
+  const maxY = workArea.y + workArea.height - height;
+  return [
+    Math.round(Math.min(Math.max(x, workArea.x), maxX)),
+    Math.round(Math.min(Math.max(y, workArea.y), maxY)),
+  ];
+}
+
+class WindowManager {
+  private mainWindow: BrowserWindow | null = null;
+  private quickWindow: BrowserWindow | null = null;
+
+  createMainWindow(): BrowserWindow {
+    this.mainWindow = new BrowserWindow({
+      ...MAIN_WINDOW_SIZE,
+      minWidth: 600,
+      minHeight: 480,
+      title: 'Quick Translate',
+      show: false,
+      webPreferences: {
+        preload: PRELOAD_PATH,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false, // sandbox:true breaks preload module loading with Vite
+        webSecurity: true,
+      },
+    });
+
+    this.mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    });
+
+    if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+      this.mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    } else {
+      this.mainWindow.loadFile(
+        path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
+      );
+    }
+
+    this.mainWindow.once('ready-to-show', () => {
+      this.mainWindow?.show();
+      if (isDev) {
+        this.mainWindow?.webContents.openDevTools();
+      }
+    });
+
+    // Hide instead of destroying so shortcuts / Dock / second-instance can show again.
+    // (Menu bar tray is only used on Windows/Linux; see tray-manager.)
+    this.mainWindow.on('close', (e) => {
+      e.preventDefault();
+      this.mainWindow?.hide();
+    });
+
+    return this.mainWindow;
+  }
+
+  createQuickWindow(): BrowserWindow {
+    this.quickWindow = new BrowserWindow({
+      ...QUICK_WINDOW_SIZE,
+      show: false,
+      frame: false,
+      resizable: false,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      transparent: false,
+      webPreferences: {
+        preload: PRELOAD_PATH,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+        webSecurity: true,
+      },
+    });
+
+    this.quickWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+    // Dev server URL is the host root (`/`) — that serves `index.html` (main app). Quick UI lives in `index-quick.html`.
+    if (QUICK_WINDOW_VITE_DEV_SERVER_URL) {
+      const base = QUICK_WINDOW_VITE_DEV_SERVER_URL.replace(/\/$/, '');
+      this.quickWindow.loadURL(`${base}/index-quick.html`);
+    } else {
+      this.quickWindow.loadFile(
+        path.join(__dirname, `../renderer/${QUICK_WINDOW_VITE_NAME}/index-quick.html`),
+      );
+    }
+
+    this.quickWindow.on('blur', () => {
+      this.quickWindow?.hide();
+    });
+
+    if (isDev) {
+      this.quickWindow.webContents.once('did-finish-load', () => {
+        this.quickWindow?.webContents.openDevTools({ mode: 'detach' });
+      });
+    }
+
+    return this.quickWindow;
+  }
+
+  getMainWindow(): BrowserWindow | null {
+    return this.mainWindow;
+  }
+
+  getQuickWindow(): BrowserWindow | null {
+    return this.quickWindow;
+  }
+
+  showMain(): void {
+    if (!this.mainWindow) return;
+    if (this.mainWindow.isMinimized()) this.mainWindow.restore();
+    this.mainWindow.show();
+    this.mainWindow.focus();
+  }
+
+  hideMain(): void {
+    this.mainWindow?.hide();
+  }
+
+  toggleMain(): void {
+    if (!this.mainWindow) return;
+    if (this.mainWindow.isVisible() && !this.mainWindow.isMinimized()) {
+      this.hideMain();
+    } else {
+      this.showMain();
+    }
+  }
+
+  /**
+   * Show the quick panel without stealing focus from the app that had text selected
+   * (critical so global shortcut + simulated Cmd+C target the correct window).
+   */
+  showQuick(alwaysOnTop: boolean): void {
+    if (!this.quickWindow) return;
+    this.quickWindow.setAlwaysOnTop(alwaysOnTop);
+    const point = screen.getCursorScreenPoint();
+    const bounds = this.quickWindow.getBounds();
+    const width = bounds.width > 0 ? bounds.width : QUICK_WINDOW_SIZE.width;
+    const height = bounds.height > 0 ? bounds.height : QUICK_WINDOW_SIZE.height;
+    const [x, y] = clampQuickWindowToWorkArea(
+      point.x + CURSOR_OFFSET,
+      point.y + CURSOR_OFFSET,
+      width,
+      height,
+    );
+    this.quickWindow.setPosition(x, y);
+    this.quickWindow.showInactive();
+  }
+
+  hideQuick(): void {
+    this.quickWindow?.hide();
+  }
+
+  setQuickAlwaysOnTop(value: boolean): void {
+    this.quickWindow?.setAlwaysOnTop(value);
+  }
+}
+
+let manager: WindowManager | null = null;
+
+export function getWindowManager(): WindowManager {
+  if (!manager) manager = new WindowManager();
+  return manager;
+}
