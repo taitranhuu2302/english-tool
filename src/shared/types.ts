@@ -30,7 +30,7 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   version: 1,
   manualDirection: 'vi-en',
-  quickTargetLanguage: 'en',
+  quickTargetLanguage: 'vi',
   quickTranslateShortcut: 'CommandOrControl+Alt+T',
   toggleAppShortcut: 'CommandOrControl+Shift+Space',
   autoCopyDelayMs: 200,

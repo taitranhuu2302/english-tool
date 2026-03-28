@@ -7,6 +7,8 @@ import { getSettingsStore } from './main/settings/settings-store';
 import { registerDefaultShortcuts, getShortcutManager } from './main/shortcuts/shortcut-manager';
 import { registerIpcHandlers } from './main/ipc/register-ipc-handlers';
 import { runQuickTranslatePipeline } from './main/quick-translate-flow';
+import { shouldSuppressMainOnActivate } from './main/activate-guard';
+import { setAppQuitting } from './main/app-quit-state';
 
 if (started) app.quit();
 
@@ -56,10 +58,12 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  setAppQuitting(true);
   getShortcutManager().unregisterAll();
   destroyTray();
 });
 
 app.on('activate', () => {
+  if (shouldSuppressMainOnActivate()) return;
   getWindowManager().showMain();
 });

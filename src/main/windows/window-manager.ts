@@ -1,4 +1,6 @@
 import { app, BrowserWindow, screen, shell } from 'electron';
+import { suppressMainOnActivateFor } from '../activate-guard';
+import { isAppQuitting } from '../app-quit-state';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -28,6 +30,15 @@ const MAIN_WINDOW_SIZE = { width: 720, height: 520 };
 const QUICK_WINDOW_SIZE = { width: 320, height: 240 };
 
 const CURSOR_OFFSET = 12;
+
+/** Avoid uncaught exceptions when the native window is torn down between check and hide(). */
+function safeHideBrowserWindow(win: BrowserWindow): void {
+  try {
+    if (!win.isDestroyed()) win.hide();
+  } catch {
+    // ignore — window already destroyed
+  }
+}
 
 function clampQuickWindowToWorkArea(
   x: number,
@@ -87,9 +98,21 @@ class WindowManager {
 
     // Hide instead of destroying so shortcuts / Dock / second-instance can show again.
     // (Menu bar tray is only used on Windows/Linux; see tray-manager.)
+    // Minimize does not fire `close` — only closing the window hides quick too.
     this.mainWindow.on('close', (e) => {
+      if (isAppQuitting()) {
+        return;
+      }
       e.preventDefault();
-      this.mainWindow?.hide();
+      this.hideQuick();
+      const mw = this.mainWindow;
+      if (mw && !mw.isDestroyed()) {
+        try {
+          mw.hide();
+        } catch {
+          /* ignore */
+        }
+      }
     });
 
     return this.mainWindow;
@@ -126,7 +149,8 @@ class WindowManager {
     }
 
     this.quickWindow.on('blur', () => {
-      this.quickWindow?.hide();
+      suppressMainOnActivateFor(1500);
+      this.hideQuick({ suppressMainFocus: true });
     });
 
     if (isDev) {
@@ -143,7 +167,9 @@ class WindowManager {
   }
 
   getQuickWindow(): BrowserWindow | null {
-    return this.quickWindow;
+    const w = this.quickWindow;
+    if (!w || w.isDestroyed()) return null;
+    return w;
   }
 
   showMain(): void {
@@ -171,10 +197,11 @@ class WindowManager {
    * (critical so global shortcut + simulated Cmd+C target the correct window).
    */
   showQuick(alwaysOnTop: boolean): void {
-    if (!this.quickWindow) return;
-    this.quickWindow.setAlwaysOnTop(alwaysOnTop);
+    const w = this.quickWindow;
+    if (!w || w.isDestroyed()) return;
+    w.setAlwaysOnTop(alwaysOnTop);
     const point = screen.getCursorScreenPoint();
-    const bounds = this.quickWindow.getBounds();
+    const bounds = w.getBounds();
     const width = bounds.width > 0 ? bounds.width : QUICK_WINDOW_SIZE.width;
     const height = bounds.height > 0 ? bounds.height : QUICK_WINDOW_SIZE.height;
     const [x, y] = clampQuickWindowToWorkArea(
@@ -183,16 +210,49 @@ class WindowManager {
       width,
       height,
     );
-    this.quickWindow.setPosition(x, y);
-    this.quickWindow.showInactive();
+    w.setPosition(x, y);
+    w.showInactive();
   }
 
-  hideQuick(): void {
-    this.quickWindow?.hide();
+  /**
+   * Hide the quick panel. When `suppressMainFocus` is true (default), avoid bringing the main
+   * window to the front / stealing focus after the floating panel closes (Electron otherwise
+   * focuses the next window in the same app).
+   */
+  hideQuick(options?: { suppressMainFocus?: boolean }): void {
+    const suppressMainFocus = options?.suppressMainFocus !== false;
+    const w = this.quickWindow;
+    const mw = this.mainWindow;
+
+    if (suppressMainFocus && mw && !mw.isDestroyed() && mw.isVisible()) {
+      try {
+        mw.setFocusable(false);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    if (w) safeHideBrowserWindow(w);
+
+    if (suppressMainFocus && mw && !mw.isDestroyed()) {
+      const restore = (): void => {
+        try {
+          if (mw.isDestroyed()) return;
+          mw.setFocusable(true);
+          if (mw.isVisible()) mw.blur();
+        } catch {
+          /* ignore */
+        }
+      };
+      setImmediate(restore);
+      setTimeout(restore, 50);
+    }
   }
 
   setQuickAlwaysOnTop(value: boolean): void {
-    this.quickWindow?.setAlwaysOnTop(value);
+    const w = this.quickWindow;
+    if (!w || w.isDestroyed()) return;
+    w.setAlwaysOnTop(value);
   }
 }
 

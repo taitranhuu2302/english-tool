@@ -4,6 +4,7 @@ import { ok, err, TranslationRequest, AppSettings, DEFAULT_SETTINGS } from '../.
 import { getSettingsStore } from '../settings/settings-store';
 import { getTranslationProvider } from '../translation/google-translate-provider';
 import { runQuickTranslatePipeline } from '../quick-translate-flow';
+import { suppressMainOnActivateFor } from '../activate-guard';
 import { getWindowManager } from '../windows/window-manager';
 import { getShortcutManager, registerDefaultShortcuts } from '../shortcuts/shortcut-manager';
 
@@ -98,7 +99,8 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle(IPC.QUICK_CLOSE, () => {
-    wm.hideQuick();
+    suppressMainOnActivateFor(1500);
+    wm.hideQuick({ suppressMainFocus: true });
   });
 
   // ── Shortcuts ──────────────────────────────────────────────────────────────
@@ -132,7 +134,7 @@ export function registerIpcHandlers(
 
   ipcMain.handle(IPC.APP_OPEN_FULL, () => {
     wm.showMain();
-    wm.hideQuick();
+    wm.hideQuick({ suppressMainFocus: false });
   });
 
   ipcMain.handle(IPC.APP_TOGGLE, () => {
