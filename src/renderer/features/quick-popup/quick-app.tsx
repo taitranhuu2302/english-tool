@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Copy, X, Loader2, AlertCircle } from "lucide-react";
+import { Copy, X, Loader2, AlertCircle, Volume2, VolumeX } from "lucide-react";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Button } from "../../../components/ui/button";
 import { bridge } from "../../lib/bridge";
 import { showError } from "../../lib/toast";
 import { useQuickClose } from "./use-quick-popup";
+import { useTTS } from "../../lib/use-speech";
 import type { QuickTranslatePayload } from "../../../shared/types";
 
 type State =
@@ -17,6 +18,7 @@ export function QuickApp() {
   const [state, setState] = useState<State>({ status: "idle" });
   const [showCopiedTip, setShowCopiedTip] = useState(false);
   const { mutate: close } = useQuickClose();
+  const tts = useTTS();
 
   useHotkeys([{ hotkey: "Escape", callback: () => handleClose() }]);
 
@@ -38,7 +40,10 @@ export function QuickApp() {
   }, []);
 
   useEffect(() => {
-    if (state.status !== "result") setShowCopiedTip(false);
+    if (state.status !== "result") {
+      setShowCopiedTip(false);
+      tts.stop();
+    }
   }, [state.status]);
 
   function handleCopy() {
@@ -136,16 +141,43 @@ export function QuickApp() {
                   Copied
                 </span>
               )}
-              <Button
-                type="button"
-                size="icon"
-                variant="secondary"
-                className="pointer-events-auto size-7 shrink-0 shadow-sm"
-                onClick={handleCopy}
-                aria-label="Copy translation"
-              >
-                <Copy className="size-3.5" />
-              </Button>
+              <div className="pointer-events-auto flex items-center gap-1">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  className="size-7 shrink-0 shadow-sm"
+                  onClick={() =>
+                    tts.speaking
+                      ? tts.stop()
+                      : tts.speak(
+                          state.status === "result"
+                            ? state.payload.translated
+                            : "",
+                          state.status === "result"
+                            ? state.payload.target
+                            : "en",
+                        )
+                  }
+                  aria-label={tts.speaking ? "Stop speaking" : "Read aloud"}
+                >
+                  {tts.speaking ? (
+                    <VolumeX className="size-3.5" />
+                  ) : (
+                    <Volume2 className="size-3.5" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  className="size-7 shrink-0 shadow-sm"
+                  onClick={handleCopy}
+                  aria-label="Copy translation"
+                >
+                  <Copy className="size-3.5" />
+                </Button>
+              </div>
             </div>
           </div>
         )}

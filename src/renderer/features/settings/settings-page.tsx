@@ -1,5 +1,5 @@
-import React from "react";
-import { RotateCcw } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Mic, MicOff, RotateCcw, ShieldCheck, ShieldX } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import {
   Card,
@@ -22,6 +22,39 @@ import {
 import type { ManualDirection, LanguageCode } from "../../../shared/types";
 import { bridge } from "../../lib/bridge";
 import { formatAcceleratorParts } from "../../lib/format-shortcut";
+
+// ---------------------------------------------------------------------------
+// Mic permission hook
+// ---------------------------------------------------------------------------
+type MicState = "unknown" | "prompt" | "granted" | "denied" | "requesting";
+
+function useMicPermission() {
+  const [mic, setMic] = useState<MicState>("unknown");
+
+  useEffect(() => {
+    if (!navigator.permissions) return;
+    navigator.permissions
+      .query({ name: "microphone" as PermissionName })
+      .then((status) => {
+        setMic(status.state as MicState);
+        status.onchange = () => setMic(status.state as MicState);
+      })
+      .catch(() => setMic("unknown"));
+  }, []);
+
+  const request = useCallback(async () => {
+    setMic("requesting");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop()); // release immediately
+      setMic("granted");
+    } catch {
+      setMic("denied");
+    }
+  }, []);
+
+  return { mic, request };
+}
 
 function SettingRow({
   label,
@@ -50,6 +83,7 @@ export function SettingsPage() {
   const { mutate: update } = useUpdateSettings();
   const { mutate: resetShortcuts, isPending: isResetting } =
     useResetShortcuts();
+  const { mic, request: requestMic } = useMicPermission();
 
   if (isLoading || !settings) {
     return (
@@ -256,6 +290,18 @@ export function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* TODO: Speech & Microphone settings temporarily hidden.
+           SpeechRecognition audio upload causes ERR_FAILED (-2) in Electron.
+           Re-enable the card below and useSTT() in translate-page.tsx once fixed.
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Speech &amp; Microphone</CardTitle>
+          ...
+        </CardHeader>
+        ...
+      </Card>
+      */}
     </div>
   );
 }

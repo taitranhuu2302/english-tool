@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ArrowLeftRight, Copy, Languages, Loader2 } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Copy,
+  Languages,
+  Loader2,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Button } from "../../../components/ui/button";
 import { Textarea } from "../../../components/ui/textarea";
@@ -17,6 +24,7 @@ import { useSettings } from "../settings/use-settings";
 import { showError } from "../../lib/toast";
 import { bridge } from "../../lib/bridge";
 import { formatAcceleratorParts } from "../../lib/format-shortcut";
+import { useTTS } from "../../lib/use-speech";
 import type { ManualDirection, TranslateSource } from "../../../shared/types";
 import { isOk, isErr } from "../../../shared/types";
 
@@ -43,6 +51,15 @@ export function TranslatePage() {
 
   const { mutateAsync: translate, isPending } = useTranslate();
 
+  const ttsInput = useTTS();
+  const ttsOutput = useTTS();
+  // TODO: STT (Speech-to-Text) via Web Speech API is temporarily disabled.
+  // SpeechRecognition audio upload causes ERR_FAILED (-2) in Electron due to
+  // Chromium permission pipe issues. Re-enable useSTT() once resolved.
+  // const stt = useSTT((transcript) => {
+  //   setInput((prev) => (prev ? prev + ' ' + transcript : transcript));
+  // });
+
   const labels = directionLabel(direction);
 
   async function handleTranslate() {
@@ -65,7 +82,10 @@ export function TranslatePage() {
   const handleSwap = useCallback(() => {
     setDirection((d) => (d === "vi-en" ? "en-vi" : "vi-en"));
     setOutput("");
-  }, []);
+    ttsInput.stop();
+    ttsOutput.stop();
+    // stt.stop(); // TODO: re-enable when STT is fixed
+  }, [ttsInput, ttsOutput]);
 
   useEffect(() => {
     setShowCopiedTip(false);
@@ -176,22 +196,58 @@ export function TranslatePage() {
                     <Kbd className="text-[9px]">Enter</Kbd>
                   </KbdGroup>
                 </span>
-                <Button
-                  size="sm"
-                  className="h-8 shrink-0 text-xs"
-                  onClick={() => void handleTranslate()}
-                  disabled={isPending || !input.trim()}
-                >
-                  {isPending ? (
-                    <Loader2
-                      data-icon="inline-start"
-                      className="animate-spin"
-                    />
-                  ) : (
-                    <Languages data-icon="inline-start" />
+                <div className="flex shrink-0 items-center gap-1">
+                  {/* TODO: STT mic button disabled — re-enable when ERR_FAILED -2 is fixed
+                  {stt.isSupported && (
+                    <Button ... >
+                      {stt.listening ? <MicOff .../> : <Mic .../>}
+                    </Button>
                   )}
-                  {isPending ? "…" : "Translate"}
-                </Button>
+                  */}
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="size-8"
+                    onClick={() =>
+                      ttsInput.speaking
+                        ? ttsInput.stop()
+                        : ttsInput.speak(
+                            input,
+                            direction === "vi-en" ? "vi" : "en",
+                          )
+                    }
+                    disabled={!input.trim()}
+                    aria-label={
+                      ttsInput.speaking ? "Stop speaking" : "Read input aloud"
+                    }
+                    title={
+                      ttsInput.speaking ? "Stop speaking" : "Read input aloud"
+                    }
+                  >
+                    {ttsInput.speaking ? (
+                      <VolumeX className="size-3.5" />
+                    ) : (
+                      <Volume2 className="size-3.5" />
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-8 shrink-0 text-xs"
+                    onClick={() => void handleTranslate()}
+                    disabled={isPending || !input.trim()}
+                  >
+                    {isPending ? (
+                      <Loader2
+                        data-icon="inline-start"
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Languages data-icon="inline-start" />
+                    )}
+                    {isPending ? "…" : "Translate"}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -227,7 +283,7 @@ export function TranslatePage() {
                   </div>
                 )}
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-1">
                 <div className="relative">
                   {showCopiedTip && (
                     <span
@@ -237,17 +293,50 @@ export function TranslatePage() {
                       Copied
                     </span>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={handleCopy}
-                    disabled={!output}
-                    aria-label="Copy translation to clipboard"
-                  >
-                    <Copy data-icon="inline-start" />
-                    Copy
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-7"
+                      onClick={() =>
+                        ttsOutput.speaking
+                          ? ttsOutput.stop()
+                          : ttsOutput.speak(
+                              output,
+                              direction === "vi-en" ? "en" : "vi",
+                            )
+                      }
+                      disabled={!output}
+                      aria-label={
+                        ttsOutput.speaking
+                          ? "Stop speaking"
+                          : "Read translation aloud"
+                      }
+                      title={
+                        ttsOutput.speaking
+                          ? "Stop speaking"
+                          : "Read translation aloud"
+                      }
+                    >
+                      {ttsOutput.speaking ? (
+                        <VolumeX className="size-3.5" />
+                      ) : (
+                        <Volume2 className="size-3.5" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={handleCopy}
+                      disabled={!output}
+                      aria-label="Copy translation to clipboard"
+                    >
+                      <Copy data-icon="inline-start" />
+                      Copy
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>
