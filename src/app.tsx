@@ -1,15 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { Languages, Settings } from "lucide-react";
+import { History, Languages, Settings, Wand2 } from "lucide-react";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Providers } from "./renderer/app/providers";
 import { TranslatePage } from "./renderer/features/translate/translate-page";
+import { ImprovePage } from "./renderer/features/improve/improve-page";
 import { SettingsPage } from "./renderer/features/settings/settings-page";
+import { HistoryPage } from "./renderer/features/history/history-page";
 import { bridge } from "./renderer/lib/bridge";
 
-type TabValue = "translate" | "settings";
+type TabValue = "translate" | "improve" | "history" | "settings";
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabValue>("translate");
+
+  useHotkeys([
+    { hotkey: "Control+1", callback: () => setActiveTab("translate") },
+    { hotkey: "Control+2", callback: () => setActiveTab("improve") },
+    { hotkey: "Control+3", callback: () => setActiveTab("history") },
+    { hotkey: "Control+4", callback: () => setActiveTab("settings") },
+  ]);
 
   useEffect(() => {
     const unsub = bridge.app.onNavigate((route) => {
@@ -51,6 +61,20 @@ function AppContent() {
               Translate
             </TabsTrigger>
             <TabsTrigger
+              value="improve"
+              className="h-full rounded-none px-3 text-xs gap-1.5 before:hidden"
+            >
+              <Wand2 className="size-3.5" />
+              Improve
+            </TabsTrigger>
+            <TabsTrigger
+              value="history"
+              className="h-full rounded-none px-3 text-xs gap-1.5 before:hidden"
+            >
+              <History className="size-3.5" />
+              History
+            </TabsTrigger>
+            <TabsTrigger
               value="settings"
               className="h-full rounded-none px-3 text-xs gap-1.5 before:hidden"
             >
@@ -67,7 +91,24 @@ function AppContent() {
           <TranslatePage />
         </TabsContent>
 
-        <TabsContent value="settings" className="flex-1 overflow-auto m-0">
+        <TabsContent
+          value="improve"
+          className="flex-1 min-h-0 overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col"
+        >
+          <ImprovePage />
+        </TabsContent>
+
+        <TabsContent
+          value="history"
+          className="flex-1 min-h-0 overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col"
+        >
+          <HistoryPage />
+        </TabsContent>
+
+        <TabsContent
+          value="settings"
+          className="flex-1 min-h-0 overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col"
+        >
           <SettingsPage />
         </TabsContent>
       </Tabs>

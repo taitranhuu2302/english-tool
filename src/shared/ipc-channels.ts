@@ -3,54 +3,90 @@ import type {
   TranslationRequest,
   TranslationResult,
   QuickTranslatePayload,
+  ImproveRequest,
+  ImproveResult,
+  HistoryItem,
+  AiModelOption,
   Result,
-} from './types';
+} from "./types";
 
 // ─── Invoke channels (renderer → main, awaited) ──────────────────────────────
 
 export const IPC = {
-  SETTINGS_GET: 'settings:get',
-  SETTINGS_UPDATE: 'settings:update',
-  SETTINGS_RESET_SHORTCUTS: 'settings:reset-shortcuts',
+  SETTINGS_GET: "settings:get",
+  SETTINGS_UPDATE: "settings:update",
+  SETTINGS_RESET_SHORTCUTS: "settings:reset-shortcuts",
 
-  TRANSLATE_MANUAL: 'translate:manual',
+  TRANSLATE_MANUAL: "translate:manual",
 
-  QUICK_TRANSLATE_NOW: 'quick:translate-now',
-  QUICK_RETRANSLATE: 'quick:retranslate',
-  QUICK_CLOSE: 'quick:close',
+  IMPROVE: "improve:run",
 
-  SHORTCUT_VALIDATE: 'shortcut:validate',
-  SHORTCUT_UPDATE: 'shortcut:update',
+  HISTORY_LIST: "history:list",
+  HISTORY_DELETE: "history:delete",
+  HISTORY_CLEAR: "history:clear",
 
-  APP_OPEN_SETTINGS: 'app:open-settings',
-  APP_OPEN_FULL: 'app:open-full',
-  APP_TOGGLE: 'app:toggle',
+  MODELS_LIST_GROQ: "models:list-groq",
+  MODELS_LIST_GEMINI: "models:list-gemini",
+
+  QUICK_TRANSLATE_NOW: "quick:translate-now",
+  QUICK_RETRANSLATE: "quick:retranslate",
+  QUICK_CLOSE: "quick:close",
+
+  SHORTCUT_VALIDATE: "shortcut:validate",
+  SHORTCUT_UPDATE: "shortcut:update",
+
+  APP_OPEN_SETTINGS: "app:open-settings",
+  APP_OPEN_FULL: "app:open-full",
+  APP_TOGGLE: "app:toggle",
 } as const;
 
 // ─── Push channels (main → renderer, one-way events) ─────────────────────────
 
 export const PUSH = {
-  QUICK_LOADING: 'quick:loading',
-  QUICK_SHOW: 'quick:show',
-  QUICK_ERROR: 'quick:error',
+  QUICK_LOADING: "quick:loading",
+  QUICK_SHOW: "quick:show",
+  QUICK_ERROR: "quick:error",
 } as const;
 
 // ─── Typed IPC map ────────────────────────────────────────────────────────────
 
 export interface IpcInvokeMap {
   [IPC.SETTINGS_GET]: { args: []; ret: AppSettings };
-  [IPC.SETTINGS_UPDATE]: { args: [Partial<AppSettings>]; ret: Result<AppSettings> };
+  [IPC.SETTINGS_UPDATE]: {
+    args: [Partial<AppSettings>];
+    ret: Result<AppSettings>;
+  };
   [IPC.SETTINGS_RESET_SHORTCUTS]: { args: []; ret: Result<AppSettings> };
 
-  [IPC.TRANSLATE_MANUAL]: { args: [TranslationRequest]; ret: Result<TranslationResult> };
+  [IPC.TRANSLATE_MANUAL]: {
+    args: [TranslationRequest];
+    ret: Result<TranslationResult>;
+  };
+
+  [IPC.IMPROVE]: { args: [ImproveRequest]; ret: Result<ImproveResult> };
+
+  [IPC.HISTORY_LIST]: {
+    args: [{ limit?: number; type?: "translate" | "improve" }];
+    ret: HistoryItem[];
+  };
+  [IPC.HISTORY_DELETE]: { args: [number]; ret: void };
+  [IPC.HISTORY_CLEAR]: { args: []; ret: void };
+
+  [IPC.MODELS_LIST_GROQ]: { args: [string]; ret: AiModelOption[] };
+  [IPC.MODELS_LIST_GEMINI]: { args: [string]; ret: AiModelOption[] };
 
   [IPC.QUICK_TRANSLATE_NOW]: { args: []; ret: Result<void> };
-  [IPC.QUICK_RETRANSLATE]: { args: [TranslationRequest]; ret: Result<TranslationResult> };
+  [IPC.QUICK_RETRANSLATE]: {
+    args: [TranslationRequest];
+    ret: Result<TranslationResult>;
+  };
   [IPC.QUICK_CLOSE]: { args: []; ret: void };
 
   [IPC.SHORTCUT_VALIDATE]: { args: [string]; ret: Result<void> };
   [IPC.SHORTCUT_UPDATE]: {
-    args: [{ key: 'quickTranslateShortcut' | 'toggleAppShortcut'; value: string }];
+    args: [
+      { key: "quickTranslateShortcut" | "toggleAppShortcut"; value: string },
+    ];
     ret: Result<AppSettings>;
   };
 

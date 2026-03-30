@@ -170,7 +170,7 @@ export function TranslatePage() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={`Paste ${labels.source} text…`}
-                className="min-h-[72px] max-h-[min(28vh,180px)] resize-y font-mono text-xs leading-relaxed"
+                className="min-h-18 max-h-[min(28vh,180px)] resize-y font-mono text-xs leading-relaxed"
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="inline-flex max-w-[min(100%,14rem)] flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-muted-foreground sm:max-w-none">

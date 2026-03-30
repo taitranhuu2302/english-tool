@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Check, X, Loader2 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
 import { Kbd, KbdGroup } from "../../../components/ui/kbd";
 import { useValidateShortcut, useUpdateShortcut } from "./use-settings";
 import { isErr } from "../../../shared/types";
@@ -63,7 +64,7 @@ export function ShortcutInput({
       {editing ? (
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <input
+            <Input
               autoFocus
               value={draft}
               onChange={(e) => {
@@ -71,7 +72,7 @@ export function ShortcutInput({
                 setValidationError(null);
               }}
               onKeyDown={handleKeyDown}
-              className="flex-1 h-9 rounded-md border border-input bg-background px-3 py-1 text-sm font-mono shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="flex-1 h-9 font-mono"
               placeholder={
                 bridge.runtime.platform === "darwin"
                   ? "e.g. Cmd+Alt+T"

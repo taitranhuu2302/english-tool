@@ -1,47 +1,53 @@
-import type { ForgeConfig } from '@electron-forge/shared-types';
-import { MakerSquirrel } from '@electron-forge/maker-squirrel';
-import { MakerZIP } from '@electron-forge/maker-zip';
-import { MakerDeb } from '@electron-forge/maker-deb';
-import { MakerRpm } from '@electron-forge/maker-rpm';
-import { VitePlugin } from '@electron-forge/plugin-vite';
-import { FusesPlugin } from '@electron-forge/plugin-fuses';
-import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import type { ForgeConfig } from "@electron-forge/shared-types";
+import { MakerSquirrel } from "@electron-forge/maker-squirrel";
+import { MakerZIP } from "@electron-forge/maker-zip";
+import { MakerDeb } from "@electron-forge/maker-deb";
+import { MakerRpm } from "@electron-forge/maker-rpm";
+import { VitePlugin } from "@electron-forge/plugin-vite";
+import { FusesPlugin } from "@electron-forge/plugin-fuses";
+import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
+import { FuseV1Options, FuseVersion } from "@electron/fuses";
 
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    name: 'NextGTranslate',
-    executableName: 'nextg-translate',
+    ignore: [/node_modules\/(?!(better-sqlite3|file-uri-to-path)\/)/],
+    name: "NextGTranslate",
+    executableName: "nextg-translate",
   },
-  rebuildConfig: {},
+  rebuildConfig: {
+    force: true,
+    onlyModules: [], // Skip rebuilding all native modules to use prebuilt binaries
+  },
   makers: [
-    new MakerSquirrel({ name: 'NextGTranslate' }),
-    new MakerZIP({}, ['darwin']),
+    new MakerSquirrel({ name: "NextGTranslate" }),
+    new MakerZIP({}, ["darwin"]),
     new MakerRpm({}),
     new MakerDeb({}),
   ],
   plugins: [
+    new AutoUnpackNativesPlugin({}),
     new VitePlugin({
       build: [
         {
-          entry: 'src/main.ts',
-          config: 'vite.main.config.ts',
-          target: 'main',
+          entry: "src/main.ts",
+          config: "vite.main.config.ts",
+          target: "main",
         },
         {
-          entry: 'src/preload.ts',
-          config: 'vite.preload.config.ts',
-          target: 'preload',
+          entry: "src/preload.ts",
+          config: "vite.preload.config.ts",
+          target: "preload",
         },
       ],
       renderer: [
         {
-          name: 'main_window',
-          config: 'vite.renderer.config.ts',
+          name: "main_window",
+          config: "vite.renderer.config.ts",
         },
         {
-          name: 'quick_window',
-          config: 'vite.renderer.quick.config.ts',
+          name: "quick_window",
+          config: "vite.renderer.quick.config.ts",
         },
       ],
     }),

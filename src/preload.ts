@@ -1,12 +1,17 @@
-import { contextBridge, ipcRenderer } from 'electron';
-import { IPC, PUSH } from './shared/ipc-channels';
+import { contextBridge, ipcRenderer } from "electron";
+import { IPC, PUSH } from "./shared/ipc-channels";
 import type {
   AppSettings,
   TranslationRequest,
   QuickTranslatePayload,
+  ImproveRequest,
+  ImproveResult,
+  HistoryItem,
+  HistoryItemType,
+  AiModelOption,
   Result,
   TranslationResult,
-} from './shared/types';
+} from "./shared/types";
 
 type UnsubscribeFn = () => void;
 
@@ -31,10 +36,37 @@ const api = {
       ipcRenderer.invoke(IPC.TRANSLATE_MANUAL, request),
   },
 
+  // ── Improve ───────────────────────────────────────────────────────────────
+  improve: {
+    run: (request: ImproveRequest): Promise<Result<ImproveResult>> =>
+      ipcRenderer.invoke(IPC.IMPROVE, request),
+  },
+
+  // ── History ───────────────────────────────────────────────────────────────
+  history: {
+    list: (
+      opts: { limit?: number; type?: HistoryItemType } = {},
+    ): Promise<HistoryItem[]> => ipcRenderer.invoke(IPC.HISTORY_LIST, opts),
+    delete: (id: number): Promise<void> =>
+      ipcRenderer.invoke(IPC.HISTORY_DELETE, id),
+    clear: (): Promise<void> => ipcRenderer.invoke(IPC.HISTORY_CLEAR),
+  },
+
+  // ── Models ────────────────────────────────────────────────────────────────
+  models: {
+    listGroq: (apiKey: string): Promise<AiModelOption[]> =>
+      ipcRenderer.invoke(IPC.MODELS_LIST_GROQ, apiKey),
+    listGemini: (apiKey: string): Promise<AiModelOption[]> =>
+      ipcRenderer.invoke(IPC.MODELS_LIST_GEMINI, apiKey),
+  },
+
   // ── Quick translate ───────────────────────────────────────────────────────
   quick: {
-    translateNow: (): Promise<Result<void>> => ipcRenderer.invoke(IPC.QUICK_TRANSLATE_NOW),
-    retranslate: (request: TranslationRequest): Promise<Result<TranslationResult>> =>
+    translateNow: (): Promise<Result<void>> =>
+      ipcRenderer.invoke(IPC.QUICK_TRANSLATE_NOW),
+    retranslate: (
+      request: TranslationRequest,
+    ): Promise<Result<TranslationResult>> =>
       ipcRenderer.invoke(IPC.QUICK_RETRANSLATE, request),
     close: (): Promise<void> => ipcRenderer.invoke(IPC.QUICK_CLOSE),
     onLoading: (cb: () => void): UnsubscribeFn => {
@@ -43,7 +75,10 @@ const api = {
       return () => ipcRenderer.removeListener(PUSH.QUICK_LOADING, listener);
     },
     onShow: (cb: (payload: QuickTranslatePayload) => void): UnsubscribeFn => {
-      const listener = (_: Electron.IpcRendererEvent, p: QuickTranslatePayload) => cb(p);
+      const listener = (
+        _: Electron.IpcRendererEvent,
+        p: QuickTranslatePayload,
+      ) => cb(p);
       ipcRenderer.on(PUSH.QUICK_SHOW, listener);
       return () => ipcRenderer.removeListener(PUSH.QUICK_SHOW, listener);
     },
@@ -59,24 +94,27 @@ const api = {
     validate: (accelerator: string): Promise<Result<void>> =>
       ipcRenderer.invoke(IPC.SHORTCUT_VALIDATE, accelerator),
     update: (
-      key: 'quickTranslateShortcut' | 'toggleAppShortcut',
+      key: "quickTranslateShortcut" | "toggleAppShortcut",
       value: string,
-    ): Promise<Result<AppSettings>> => ipcRenderer.invoke(IPC.SHORTCUT_UPDATE, { key, value }),
+    ): Promise<Result<AppSettings>> =>
+      ipcRenderer.invoke(IPC.SHORTCUT_UPDATE, { key, value }),
   },
 
   // ── App actions ───────────────────────────────────────────────────────────
   app: {
-    openSettings: (): Promise<void> => ipcRenderer.invoke(IPC.APP_OPEN_SETTINGS),
+    openSettings: (): Promise<void> =>
+      ipcRenderer.invoke(IPC.APP_OPEN_SETTINGS),
     openFull: (): Promise<void> => ipcRenderer.invoke(IPC.APP_OPEN_FULL),
     toggle: (): Promise<void> => ipcRenderer.invoke(IPC.APP_TOGGLE),
     onNavigate: (cb: (route: string) => void): UnsubscribeFn => {
-      const listener = (_: Electron.IpcRendererEvent, route: string) => cb(route);
-      ipcRenderer.on('app:navigate', listener);
-      return () => ipcRenderer.removeListener('app:navigate', listener);
+      const listener = (_: Electron.IpcRendererEvent, route: string) =>
+        cb(route);
+      ipcRenderer.on("app:navigate", listener);
+      return () => ipcRenderer.removeListener("app:navigate", listener);
     },
   },
 } as const;
 
-contextBridge.exposeInMainWorld('electronAPI', api);
+contextBridge.exposeInMainWorld("electronAPI", api);
 
 export type ElectronAPI = typeof api;
