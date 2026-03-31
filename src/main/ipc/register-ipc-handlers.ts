@@ -109,7 +109,7 @@ export function registerIpcHandlers(handlers: {
       }
       try {
         const result = await provider.translate(request);
-        addHistory(
+        await addHistory(
           {
             type: "translate",
             input: request.text,
@@ -135,7 +135,7 @@ export function registerIpcHandlers(handlers: {
     try {
       const s = settings.get();
       const result = await runImprove(request, s);
-      addHistory(
+      await addHistory(
         {
           type: "improve",
           input: request.text,
@@ -165,17 +165,17 @@ export function registerIpcHandlers(handlers: {
 
   ipcMain.handle(
     IPC.HISTORY_LIST,
-    (_e, opts: { limit?: number; type?: "translate" | "improve" }) => {
-      return listHistory(opts);
+    async (_e, opts: { limit?: number; type?: "translate" | "improve" }) => {
+      return await listHistory(opts);
     },
   );
 
-  ipcMain.handle(IPC.HISTORY_CLEAR, () => {
-    clearHistory();
+  ipcMain.handle(IPC.HISTORY_CLEAR, async () => {
+    await clearHistory();
   });
 
-  ipcMain.handle(IPC.HISTORY_DELETE, (_e, id: number) => {
-    deleteHistoryItem(id);
+  ipcMain.handle(IPC.HISTORY_DELETE, async (_e, id: number) => {
+    await deleteHistoryItem(id);
   });
 
   // ── Model listing ──────────────────────────────────────────────────────────

@@ -61,11 +61,16 @@ class WindowManager {
   private quickWindow: BrowserWindow | null = null;
 
   createMainWindow(): BrowserWindow {
+    const appIcon = app.isPackaged
+      ? path.join(process.resourcesPath, "assets", "logo.png")
+      : path.join(__dirname, "../../assets/logo.png");
+
     this.mainWindow = new BrowserWindow({
       ...MAIN_WINDOW_SIZE,
       minWidth: 600,
       minHeight: 480,
       title: "NextG Translate",
+      icon: appIcon,
       show: false,
       autoHideMenuBar: true,
       webPreferences: {

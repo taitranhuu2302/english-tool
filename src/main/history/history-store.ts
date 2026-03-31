@@ -1,48 +1,53 @@
 import { app } from "electron";
 import path from "node:path";
-import { createRequire } from "node:module";
+import { promises as fs } from "node:fs";
 import type { HistoryItem, HistoryItemType } from "../../shared/types";
 
-const require = createRequire(import.meta.url);
+interface HistoryData {
+  nextId: number;
+  items: HistoryItem[];
+}
 
-// Lazy-load better-sqlite3 to avoid issues if native module isn't rebuilt yet
-type Database = import("better-sqlite3").Database;
+let _historyPath: string | null = null;
+let _historyCache: HistoryData | null = null;
 
-let _db: Database | null = null;
-
-function getDb(): Database {
-  if (_db) return _db;
-  const BetterSqlite3 =
-    require("better-sqlite3") as typeof import("better-sqlite3");
-  const dbPath = path.join(app.getPath("userData"), "history.db");
-
+function getHistoryPath(): string {
+  if (_historyPath) return _historyPath;
+  _historyPath = path.join(app.getPath("userData"), "history.json");
   console.log("[history-store] userData path:", app.getPath("userData"));
-  console.log("[history-store] DB path:", dbPath);
+  console.log("[history-store] History file path:", _historyPath);
+  return _historyPath;
+}
 
+async function loadHistory(): Promise<HistoryData> {
+  if (_historyCache) return _historyCache;
+
+  const filePath = getHistoryPath();
   try {
-    _db = new BetterSqlite3(dbPath);
-    console.log("[history-store] Database opened successfully");
+    const content = await fs.readFile(filePath, "utf-8");
+    _historyCache = JSON.parse(content);
+    console.log("[history-store] Loaded history successfully");
   } catch (e) {
-    console.error("[history-store] Failed to open database:", e);
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      console.log("[history-store] No existing history file, creating new one");
+      _historyCache = { nextId: 1, items: [] };
+    } else {
+      console.error("[history-store] Failed to load history:", e);
+      throw e;
+    }
+  }
+  return _historyCache;
+}
+
+async function saveHistory(data: HistoryData): Promise<void> {
+  const filePath = getHistoryPath();
+  try {
+    await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+    _historyCache = data;
+  } catch (e) {
+    console.error("[history-store] Failed to save history:", e);
     throw e;
   }
-
-  _db.exec(`
-    CREATE TABLE IF NOT EXISTS history (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      type       TEXT    NOT NULL,
-      input      TEXT    NOT NULL,
-      output     TEXT    NOT NULL,
-      output2    TEXT,
-      lang_from  TEXT    NOT NULL DEFAULT '',
-      lang_to    TEXT    NOT NULL DEFAULT '',
-      provider   TEXT,
-      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
-    );
-    CREATE INDEX IF NOT EXISTS idx_history_type ON history(type);
-    CREATE INDEX IF NOT EXISTS idx_history_created ON history(created_at DESC);
-  `);
-  return _db;
 }
 
 export interface AddHistoryParams {
@@ -55,15 +60,15 @@ export interface AddHistoryParams {
   provider?: string | null;
 }
 
-export function addHistory(params: AddHistoryParams, maxItems = 0): void {
+export async function addHistory(
+  params: AddHistoryParams,
+  maxItems = 0,
+): Promise<void> {
   try {
-    const db = getDb();
-    db.prepare(
-      `
-      INSERT INTO history (type, input, output, output2, lang_from, lang_to, provider)
-      VALUES (@type, @input, @output, @output2, @langFrom, @langTo, @provider)
-    `,
-    ).run({
+    const data = await loadHistory();
+
+    const newItem: HistoryItem = {
+      id: data.nextId++,
       type: params.type,
       input: params.input,
       output: params.output,
@@ -71,64 +76,55 @@ export function addHistory(params: AddHistoryParams, maxItems = 0): void {
       langFrom: params.langFrom,
       langTo: params.langTo,
       provider: params.provider ?? null,
-    });
+      createdAt: new Date().toISOString(),
+    };
 
-    // Auto-prune: keep only the latest N rows
-    if (maxItems > 0) {
-      db.prepare(
-        `DELETE FROM history WHERE id NOT IN
-         (SELECT id FROM history ORDER BY created_at DESC LIMIT ?)`,
-      ).run(maxItems);
+    data.items.unshift(newItem);
+
+    // Auto-prune: keep only the latest N items
+    if (maxItems > 0 && data.items.length > maxItems) {
+      data.items = data.items.slice(0, maxItems);
     }
+
+    await saveHistory(data);
   } catch (e) {
     console.error("[history] addHistory failed:", e);
   }
 }
 
-export function listHistory(
+export async function listHistory(
   opts: { limit?: number; type?: HistoryItemType } = {},
-): HistoryItem[] {
+): Promise<HistoryItem[]> {
   try {
-    const db = getDb();
+    const data = await loadHistory();
     const limit = opts.limit ?? 200;
-    const rows = opts.type
-      ? db
-          .prepare(
-            "SELECT * FROM history WHERE type = ? ORDER BY created_at DESC LIMIT ?",
-          )
-          .all(opts.type, limit)
-      : db
-          .prepare("SELECT * FROM history ORDER BY created_at DESC LIMIT ?")
-          .all(limit);
 
-    return (rows as Record<string, unknown>[]).map((r) => ({
-      id: r.id as number,
-      type: r.type as HistoryItemType,
-      input: r.input as string,
-      output: r.output as string,
-      output2: (r.output2 as string | null) ?? null,
-      langFrom: r.lang_from as string,
-      langTo: r.lang_to as string,
-      provider: (r.provider as string | null) ?? null,
-      createdAt: r.created_at as string,
-    }));
+    let filtered = opts.type
+      ? data.items.filter((item) => item.type === opts.type)
+      : data.items;
+
+    return filtered.slice(0, limit);
   } catch (e) {
     console.error("[history] listHistory failed:", e);
     return [];
   }
 }
 
-export function deleteHistoryItem(id: number): void {
+export async function deleteHistoryItem(id: number): Promise<void> {
   try {
-    getDb().prepare("DELETE FROM history WHERE id = ?").run(id);
+    const data = await loadHistory();
+    data.items = data.items.filter((item) => item.id !== id);
+    await saveHistory(data);
   } catch (e) {
     console.error("[history] deleteHistoryItem failed:", e);
   }
 }
 
-export function clearHistory(): void {
+export async function clearHistory(): Promise<void> {
   try {
-    getDb().exec("DELETE FROM history");
+    const data = await loadHistory();
+    data.items = [];
+    await saveHistory(data);
   } catch (e) {
     console.error("[history] clearHistory failed:", e);
   }

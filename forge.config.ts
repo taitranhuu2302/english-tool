@@ -5,19 +5,16 @@ import { MakerDeb } from "@electron-forge/maker-deb";
 import { MakerRpm } from "@electron-forge/maker-rpm";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
-import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
+import { PublisherGithub } from "@electron-forge/publisher-github";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    ignore: [/node_modules\/(?!(better-sqlite3|file-uri-to-path)\/)/],
     name: "NextGTranslate",
     executableName: "nextg-translate",
-  },
-  rebuildConfig: {
-    force: true,
-    onlyModules: [], // Skip rebuilding all native modules to use prebuilt binaries
+    icon: "assets/logo",
+    extraResource: ["assets"],
   },
   makers: [
     new MakerSquirrel({ name: "NextGTranslate" }),
@@ -25,8 +22,17 @@ const config: ForgeConfig = {
     new MakerRpm({}),
     new MakerDeb({}),
   ],
+  publishers: [
+    new PublisherGithub({
+      repository: {
+        owner: "taitranhuu2302",
+        name: "nextg-translate", // ← đổi thành tên repo GitHub của bạn
+      },
+      prerelease: false,
+      draft: true,
+    }),
+  ],
   plugins: [
-    new AutoUnpackNativesPlugin({}),
     new VitePlugin({
       build: [
         {

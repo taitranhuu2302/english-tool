@@ -1,15 +1,35 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { History, Languages, Settings, Wand2 } from "lucide-react";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Providers } from "./renderer/app/providers";
 import { TranslatePage } from "./renderer/features/translate/translate-page";
-import { ImprovePage } from "./renderer/features/improve/improve-page";
-import { SettingsPage } from "./renderer/features/settings/settings-page";
-import { HistoryPage } from "./renderer/features/history/history-page";
+import { Spinner } from "./components/ui/spinner";
 import { bridge } from "./renderer/lib/bridge";
 
+const ImprovePage = lazy(() =>
+  import("./renderer/features/improve/improve-page").then((m) => ({
+    default: m.ImprovePage,
+  })),
+);
+const SettingsPage = lazy(() =>
+  import("./renderer/features/settings/settings-page").then((m) => ({
+    default: m.SettingsPage,
+  })),
+);
+const HistoryPage = lazy(() =>
+  import("./renderer/features/history/history-page").then((m) => ({
+    default: m.HistoryPage,
+  })),
+);
+
 type TabValue = "translate" | "improve" | "history" | "settings";
+
+const TabFallback = () => (
+  <div className="flex flex-1 items-center justify-center">
+    <Spinner className="size-5 text-muted-foreground" />
+  </div>
+);
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabValue>("translate");
@@ -40,7 +60,7 @@ function AppContent() {
         <header className="shrink-0 flex items-center gap-3 border-b px-4">
           {/* Branding */}
           <div className="flex items-center gap-1.5 py-2.5 select-none">
-            <Languages className="size-3.75 text-primary" />
+            <img src="/logo.png" className="size-8" alt="NextG" />
             <span className="text-xs font-semibold tracking-tight text-foreground/70">
               NextG
             </span>
@@ -95,21 +115,27 @@ function AppContent() {
           value="improve"
           className="flex-1 min-h-0 overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <ImprovePage />
+          <Suspense fallback={<TabFallback />}>
+            <ImprovePage />
+          </Suspense>
         </TabsContent>
 
         <TabsContent
           value="history"
           className="flex-1 min-h-0 overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <HistoryPage />
+          <Suspense fallback={<TabFallback />}>
+            <HistoryPage />
+          </Suspense>
         </TabsContent>
 
         <TabsContent
           value="settings"
           className="flex-1 min-h-0 overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <SettingsPage />
+          <Suspense fallback={<TabFallback />}>
+            <SettingsPage />
+          </Suspense>
         </TabsContent>
       </Tabs>
     </div>

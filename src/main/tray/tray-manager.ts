@@ -1,42 +1,42 @@
-import { Tray, Menu, nativeImage, app } from 'electron';
-import path from 'node:path';
-import { getWindowManager } from '../windows/window-manager';
-import { appBus } from '../app-bus';
+import { Tray, Menu, nativeImage, app } from "electron";
+import path from "node:path";
+import { getWindowManager } from "../windows/window-manager";
+import { appBus } from "../app-bus";
 
 let tray: Tray | null = null;
 
 /** Menu bar tray is for Windows/Linux; macOS uses the Dock + standard window chrome. */
-export const usesMenuBarTray = process.platform !== 'darwin';
+export const usesMenuBarTray = process.platform !== "darwin";
 
 /** macOS: empty tray images + rapid setContextMenu can trigger NSMenu representedObject warnings. */
 const FALLBACK_TRAY_PNG_BASE64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 function buildMenu(mainVisible: boolean): Menu {
   const wm = getWindowManager();
   return Menu.buildFromTemplate([
     {
-      label: mainVisible ? 'Hide NextG Translate' : 'Show NextG Translate',
+      label: mainVisible ? "Hide NextG Translate" : "Show NextG Translate",
       click: () => wm.toggleMain(),
     },
     {
-      label: 'NextG Translate Now',
-      click: () => appBus.emit('quick-translate-trigger'),
+      label: "NextG Translate Now",
+      click: () => appBus.emit("quick-translate-trigger"),
     },
-    { type: 'separator' },
+    { type: "separator" },
     {
-      label: 'Settings',
+      label: "Settings",
       click: () => {
         wm.showMain();
         const mainWin = wm.getMainWindow();
-        mainWin?.webContents.send('app:navigate', '/settings');
+        mainWin?.webContents.send("app:navigate", "/settings");
       },
     },
-    { type: 'separator' },
+    { type: "separator" },
     {
-      label: 'Quit',
+      label: "Quit",
       click: () => {
-        app.removeAllListeners('window-all-closed');
+        app.removeAllListeners("window-all-closed");
         app.quit();
       },
     },
@@ -46,22 +46,26 @@ function buildMenu(mainVisible: boolean): Menu {
 export function createTray(): void {
   if (!usesMenuBarTray) return;
 
-  const iconSize = { width: 16, height: 16 };
+  const iconSize = { width: 24, height: 24 };
 
   // Never use createEmpty() on macOS — use a minimal valid PNG instead.
   let icon: Electron.NativeImage;
   try {
-    const iconPath = path.join(__dirname, '../../assets/tray-icon.png');
+    // In production (packaged): assets are in process.resourcesPath/assets/
+    // In development: assets are 2 levels up from .vite/build/ -> project root/assets/
+    const iconPath = app.isPackaged
+      ? path.join(process.resourcesPath, "assets", "logo.png")
+      : path.join(__dirname, "../../assets/logo.png");
     icon = nativeImage.createFromPath(iconPath).resize(iconSize);
-    if (icon.isEmpty()) throw new Error('empty');
+    if (icon.isEmpty()) throw new Error("empty");
   } catch {
     icon = nativeImage
-      .createFromBuffer(Buffer.from(FALLBACK_TRAY_PNG_BASE64, 'base64'))
+      .createFromBuffer(Buffer.from(FALLBACK_TRAY_PNG_BASE64, "base64"))
       .resize(iconSize);
   }
 
   tray = new Tray(icon);
-  tray.setToolTip('NextG Translate');
+  tray.setToolTip("NextG Translate");
 
   const wm = getWindowManager();
   const mainWin = wm.getMainWindow();
@@ -79,10 +83,10 @@ export function createTray(): void {
     });
   };
 
-  mainWin?.on('show', refresh);
-  mainWin?.on('hide', refresh);
+  mainWin?.on("show", refresh);
+  mainWin?.on("hide", refresh);
 
-  tray.on('click', () => wm.toggleMain());
+  tray.on("click", () => wm.toggleMain());
 
   refresh();
 }
