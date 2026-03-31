@@ -26,7 +26,7 @@ const config: ForgeConfig = {
     new PublisherGithub({
       repository: {
         owner: "taitranhuu2302",
-        name: "english-tool",
+        name: "translator-app",
       },
       prerelease: false,
       draft: true,
