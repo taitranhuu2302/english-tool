@@ -113,6 +113,24 @@ const api = {
       return () => ipcRenderer.removeListener("app:navigate", listener);
     },
   },
+
+  // ── Clipboard ─────────────────────────────────────────────────────────────
+  clipboard: {
+    writeText: (text: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.CLIPBOARD_WRITE, text),
+  },
+
+  // ── macOS permissions ─────────────────────────────────────────────────────
+  macos: {
+    requestQuickPermissions: (): Promise<
+      | { ok: true }
+      | { ok: false; message: string; missing: "accessibility" | "automation" }
+    > => ipcRenderer.invoke(IPC.MACOS_REQUEST_QUICK_PERMISSIONS),
+    openPrivacySettings: (
+      pane: "accessibility" | "automation",
+    ): Promise<void> =>
+      ipcRenderer.invoke(IPC.MACOS_OPEN_PRIVACY_SETTINGS, pane),
+  },
 } as const;
 
 contextBridge.exposeInMainWorld("electronAPI", api);

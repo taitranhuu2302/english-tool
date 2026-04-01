@@ -1,9 +1,10 @@
-import { PUSH } from '../shared/ipc-channels';
-import { ok, err, isErr, type Result } from '../shared/types';
-import { getSettingsStore } from './settings/settings-store';
-import { getWindowManager } from './windows/window-manager';
-import { getSelectionCaptureService } from './selection/selection-capture-service';
-import { getTranslationProvider } from './translation/google-translate-provider';
+import { PUSH } from "../shared/ipc-channels";
+import { ok, err, isErr, type Result } from "../shared/types";
+import { getSettingsStore } from "./settings/settings-store";
+import { getWindowManager } from "./windows/window-manager";
+import { getSelectionCaptureService } from "./selection/selection-capture-service";
+import { getTranslationProvider } from "./translation/google-translate-provider";
+import { ensureQuickTranslatePermissions } from "./permissions/macos-permissions";
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -11,10 +12,13 @@ function delay(ms: number): Promise<void> {
 
 function normalizeTranslateError(error: unknown): Result<never> {
   const msg = error instanceof Error ? error.message : String(error);
-  if (msg.startsWith('TIMEOUT:')) return err('TIMEOUT', msg.replace('TIMEOUT: ', ''));
-  if (msg.startsWith('NETWORK_ERROR:')) return err('NETWORK_ERROR', msg.replace('NETWORK_ERROR: ', ''));
-  if (msg.startsWith('API_ERROR:')) return err('API_ERROR', msg.replace('API_ERROR: ', ''));
-  return err('UNKNOWN', msg);
+  if (msg.startsWith("TIMEOUT:"))
+    return err("TIMEOUT", msg.replace("TIMEOUT: ", ""));
+  if (msg.startsWith("NETWORK_ERROR:"))
+    return err("NETWORK_ERROR", msg.replace("NETWORK_ERROR: ", ""));
+  if (msg.startsWith("API_ERROR:"))
+    return err("API_ERROR", msg.replace("API_ERROR: ", ""));
+  return err("UNKNOWN", msg);
 }
 
 /**
@@ -28,11 +32,20 @@ export async function runQuickTranslatePipeline(): Promise<Result<void>> {
   const wm = getWindowManager();
   const quickWin = wm.getQuickWindow();
   if (!quickWin) {
-    return err('POPUP_NOT_READY', 'Quick window is not initialized');
+    return err("POPUP_NOT_READY", "Quick window is not initialized");
   }
 
   const settings = getSettingsStore();
   const s = settings.get();
+
+  if (process.platform === "darwin") {
+    const permission = await ensureQuickTranslatePermissions();
+    if (!permission.ok) {
+      quickWin.webContents.send(PUSH.QUICK_ERROR, permission.message);
+      wm.showQuick(s.popupAlwaysOnTop);
+      return err("SELECTION_CAPTURE_FAILED", permission.message);
+    }
+  }
 
   const mainWin = wm.getMainWindow();
   if (mainWin?.isVisible() && mainWin.isFocused()) {
@@ -54,10 +67,10 @@ export async function runQuickTranslatePipeline(): Promise<Result<void>> {
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    const clean = msg.replace('SELECTION_CAPTURE_FAILED: ', '');
+    const clean = msg.replace("SELECTION_CAPTURE_FAILED: ", "");
     quickWin.webContents.send(PUSH.QUICK_ERROR, clean);
     wm.showQuick(s.popupAlwaysOnTop);
-    return err('SELECTION_CAPTURE_FAILED', clean);
+    return err("SELECTION_CAPTURE_FAILED", clean);
   }
 
   quickWin.webContents.send(PUSH.QUICK_LOADING);
@@ -65,7 +78,7 @@ export async function runQuickTranslatePipeline(): Promise<Result<void>> {
 
   try {
     const result = await provider.translate({
-      source: 'auto',
+      source: "auto",
       target: s.quickTargetLanguage,
       text,
     });

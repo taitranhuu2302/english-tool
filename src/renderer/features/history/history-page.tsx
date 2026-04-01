@@ -12,6 +12,8 @@ import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { Separator } from "../../../components/ui/separator";
+import { bridge } from "../../lib/bridge";
+import { showError } from "../../lib/toast";
 import { useHistory } from "./use-history";
 import type { HistoryItem, HistoryItemType } from "../../../shared/types";
 
@@ -30,11 +32,14 @@ function formatTime(iso: string) {
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
-  function handleCopy() {
-    void navigator.clipboard.writeText(text).then(() => {
+  async function handleCopy() {
+    try {
+      await bridge.clipboard.writeText(text);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
-    });
+    } catch {
+      showError("Could not copy");
+    }
   }
 
   return (

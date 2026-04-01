@@ -1,4 +1,4 @@
-import { ipcMain } from "electron";
+import { clipboard, ipcMain } from "electron";
 import { IPC } from "../../shared/ipc-channels";
 import {
   ok,
@@ -24,6 +24,10 @@ import {
   clearHistory,
   deleteHistoryItem,
 } from "../history/history-store";
+import {
+  ensureQuickTranslatePermissions,
+  openMacPrivacySettings,
+} from "../permissions/macos-permissions";
 
 function normalizeTranslationError(error: unknown): ReturnType<typeof err> {
   const msg = error instanceof Error ? error.message : String(error);
@@ -267,4 +271,23 @@ export function registerIpcHandlers(handlers: {
   ipcMain.handle(IPC.APP_TOGGLE, () => {
     wm.toggleMain();
   });
+
+  // ── Clipboard ─────────────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.CLIPBOARD_WRITE, (_e, text: string) => {
+    clipboard.writeText(text);
+  });
+
+  // ── macOS permissions ─────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.MACOS_REQUEST_QUICK_PERMISSIONS, async () => {
+    return await ensureQuickTranslatePermissions();
+  });
+
+  ipcMain.handle(
+    IPC.MACOS_OPEN_PRIVACY_SETTINGS,
+    async (_e, pane: "accessibility" | "automation") => {
+      await openMacPrivacySettings(pane);
+    },
+  );
 }

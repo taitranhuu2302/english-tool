@@ -27,6 +27,7 @@ import { Separator } from "../../../components/ui/separator";
 import { cn } from "../../../lib/utils";
 import { useImprove } from "./use-improve";
 import { useSettings } from "../settings/use-settings";
+import { bridge } from "../../lib/bridge";
 import { showError } from "../../lib/toast";
 import { useTTS } from "../../lib/use-speech";
 import { useHistory } from "../history/use-history";
@@ -51,14 +52,14 @@ function ResultCard({
   const tts = useTTS();
   const [copied, setCopied] = useState(false);
 
-  function handleCopy() {
-    void navigator.clipboard.writeText(text).then(
-      () => {
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1500);
-      },
-      () => showError("Could not copy"),
-    );
+  async function handleCopy() {
+    try {
+      await bridge.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      showError("Could not copy");
+    }
   }
 
   return (
@@ -143,11 +144,14 @@ function formatTime(iso: string) {
 
 function SidebarCopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  function handleCopy() {
-    void navigator.clipboard.writeText(text).then(() => {
+  async function handleCopy() {
+    try {
+      await bridge.clipboard.writeText(text);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
-    });
+    } catch {
+      showError("Could not copy");
+    }
   }
   return (
     <button

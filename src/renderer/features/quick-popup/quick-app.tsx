@@ -17,6 +17,7 @@ type State =
 export function QuickApp() {
   const [state, setState] = useState<State>({ status: "idle" });
   const [showCopiedTip, setShowCopiedTip] = useState(false);
+  const [openPermissionPending, setOpenPermissionPending] = useState(false);
   const { mutate: close } = useQuickClose();
   const tts = useTTS();
 
@@ -46,21 +47,49 @@ export function QuickApp() {
     }
   }, [state.status]);
 
-  function handleCopy() {
+  async function handleCopy() {
     if (state.status !== "result") return;
-    void navigator.clipboard.writeText(state.payload.translated).then(
-      () => {
-        setShowCopiedTip(true);
-        window.setTimeout(() => setShowCopiedTip(false), 1500);
-      },
-      () => showError("Could not copy to clipboard"),
-    );
+    try {
+      await bridge.clipboard.writeText(state.payload.translated);
+      setShowCopiedTip(true);
+      window.setTimeout(() => setShowCopiedTip(false), 1500);
+    } catch {
+      showError("Could not copy to clipboard");
+    }
   }
 
   function handleClose() {
     close();
     setState({ status: "idle" });
   }
+
+  function getMissingPermission(
+    message: string,
+  ): "accessibility" | "automation" | null {
+    const lower = message.toLowerCase();
+    if (lower.includes("accessibility")) return "accessibility";
+    if (lower.includes("automation") || lower.includes("system events")) {
+      return "automation";
+    }
+    return null;
+  }
+
+  async function handleOpenPermissionSettings() {
+    if (state.status !== "error") return;
+    const missing = getMissingPermission(state.message);
+    if (!missing) return;
+    setOpenPermissionPending(true);
+    try {
+      await bridge.macos.openPrivacySettings(missing);
+    } catch {
+      showError("Could not open macOS privacy settings");
+    } finally {
+      setOpenPermissionPending(false);
+    }
+  }
+
+  const missingPermission =
+    state.status === "error" ? getMissingPermission(state.message) : null;
 
   const dragStyle = { WebkitAppRegion: "drag" } as React.CSSProperties;
   const noDragStyle = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
@@ -111,6 +140,22 @@ export function QuickApp() {
             <p className="px-1 text-xs leading-snug text-destructive">
               {state.message}
             </p>
+            {bridge.runtime.platform === "darwin" && missingPermission && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-[10px]"
+                onClick={() => void handleOpenPermissionSettings()}
+                disabled={openPermissionPending}
+              >
+                {openPermissionPending
+                  ? "Opening..."
+                  : missingPermission === "accessibility"
+                    ? "Open Accessibility Settings"
+                    : "Open Automation Settings"}
+              </Button>
+            )}
             <p className="px-1 text-[10px] leading-snug text-muted-foreground">
               Select text in the app you’re using, then press the shortcut
               again. On macOS, enable Accessibility for this app (and Terminal

@@ -38,6 +38,11 @@ export const IPC = {
   APP_OPEN_SETTINGS: "app:open-settings",
   APP_OPEN_FULL: "app:open-full",
   APP_TOGGLE: "app:toggle",
+
+  CLIPBOARD_WRITE: "clipboard:write",
+
+  MACOS_REQUEST_QUICK_PERMISSIONS: "macos:request-quick-permissions",
+  MACOS_OPEN_PRIVACY_SETTINGS: "macos:open-privacy-settings",
 } as const;
 
 // ─── Push channels (main → renderer, one-way events) ─────────────────────────
@@ -93,6 +98,19 @@ export interface IpcInvokeMap {
   [IPC.APP_OPEN_SETTINGS]: { args: []; ret: void };
   [IPC.APP_OPEN_FULL]: { args: []; ret: void };
   [IPC.APP_TOGGLE]: { args: []; ret: void };
+
+  [IPC.CLIPBOARD_WRITE]: { args: [string]; ret: void };
+
+  [IPC.MACOS_REQUEST_QUICK_PERMISSIONS]: {
+    args: [];
+    ret:
+      | { ok: true }
+      | { ok: false; message: string; missing: "accessibility" | "automation" };
+  };
+  [IPC.MACOS_OPEN_PRIVACY_SETTINGS]: {
+    args: ["accessibility" | "automation"];
+    ret: void;
+  };
 }
 
 export interface IpcPushMap {

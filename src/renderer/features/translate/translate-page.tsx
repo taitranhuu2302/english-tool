@@ -93,15 +93,15 @@ export function TranslatePage() {
 
   useHotkeys([{ hotkey: "Mod+Shift+S", callback: () => handleSwap() }]);
 
-  function handleCopy() {
+  async function handleCopy() {
     if (!output) return;
-    void navigator.clipboard.writeText(output).then(
-      () => {
-        setShowCopiedTip(true);
-        window.setTimeout(() => setShowCopiedTip(false), 1500);
-      },
-      () => showError("Could not copy to clipboard"),
-    );
+    try {
+      await bridge.clipboard.writeText(output);
+      setShowCopiedTip(true);
+      window.setTimeout(() => setShowCopiedTip(false), 1500);
+    } catch {
+      showError("Could not copy to clipboard");
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
