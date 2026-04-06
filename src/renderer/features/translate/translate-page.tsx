@@ -16,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../../../components/ui/card";
+import { Badge } from "../../../components/ui/badge";
 import { Separator } from "../../../components/ui/separator";
 import { Kbd, KbdGroup } from "../../../components/ui/kbd";
 import { cn } from "../../../lib/utils";
@@ -25,7 +26,11 @@ import { showError } from "../../lib/toast";
 import { bridge } from "../../lib/bridge";
 import { formatAcceleratorParts } from "../../lib/format-shortcut";
 import { useTTS } from "../../lib/use-speech";
-import type { ManualDirection, TranslateSource } from "../../../shared/types";
+import type {
+  ManualDirection,
+  TranslateSource,
+  TranslationDetails,
+} from "../../../shared/types";
 import { isOk, isErr } from "../../../shared/types";
 
 function directionLabel(dir: ManualDirection): {
@@ -40,6 +45,11 @@ function directionLabel(dir: ManualDirection): {
 const swapHotkeyParts = formatAcceleratorParts("CommandOrControl+Shift+S");
 const swapHotkeyTitle = swapHotkeyParts.join("+");
 
+function formatConfidence(confidence?: number): string | null {
+  if (typeof confidence !== "number" || Number.isNaN(confidence)) return null;
+  return `${Math.round(confidence * 100)}%`;
+}
+
 export function TranslatePage() {
   const { data: settings } = useSettings();
   const [direction, setDirection] = useState<ManualDirection>(
@@ -47,6 +57,7 @@ export function TranslatePage() {
   );
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
+  const [details, setDetails] = useState<TranslationDetails | null>(null);
   const [showCopiedTip, setShowCopiedTip] = useState(false);
 
   const { mutateAsync: translate, isPending } = useTranslate();
@@ -74,18 +85,30 @@ export function TranslatePage() {
     });
     if (isOk(result)) {
       setOutput(result.data.translation);
+      setDetails(result.data.details ?? null);
     } else if (isErr(result)) {
+      setDetails(null);
       showError(result.error.message);
     }
   }
 
   const handleSwap = useCallback(() => {
+    const prevInput = input;
+    const prevOutput = output;
+
     setDirection((d) => (d === "vi-en" ? "en-vi" : "vi-en"));
-    setOutput("");
+    if (prevOutput.trim()) {
+      setInput(prevOutput);
+      setOutput(prevInput);
+    } else {
+      setInput(prevInput);
+      setOutput("");
+    }
+    setDetails(null);
     ttsInput.stop();
     ttsOutput.stop();
     // stt.stop(); // TODO: re-enable when STT is fixed
-  }, [ttsInput, ttsOutput]);
+  }, [input, output, ttsInput, ttsOutput]);
 
   useEffect(() => {
     setShowCopiedTip(false);
@@ -146,7 +169,7 @@ export function TranslatePage() {
             </div>
           </div>
 
-          <p className="flex flex-wrap items-center justify-center gap-1 text-[10px] text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-center gap-1 text-[10px] text-muted-foreground">
             <span>Quick swap</span>
             <KbdGroup>
               {swapHotkeyParts.map((p, i) => (
@@ -156,7 +179,7 @@ export function TranslatePage() {
                 </React.Fragment>
               ))}
             </KbdGroup>
-          </p>
+          </div>
 
           <Card className="gap-0 py-0 shadow-sm">
             <CardHeader className="space-y-0 px-3 py-2 pb-1.5">
@@ -165,50 +188,20 @@ export function TranslatePage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5 px-3 pb-2.5 pt-0">
-              <Textarea
-                autoFocus
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={`Paste ${labels.source} text…`}
-                className="min-h-18 max-h-[min(28vh,180px)] resize-y font-mono text-xs leading-relaxed"
-              />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="inline-flex max-w-[min(100%,14rem)] flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-muted-foreground sm:max-w-none">
-                  <span>{input.length} chars</span>
-                  <span className="text-muted-foreground/60">·</span>
-                  <KbdGroup className="inline-flex flex-wrap">
-                    {swapHotkeyParts.map((p, i) => (
-                      <React.Fragment key={i}>
-                        {i > 0 && (
-                          <span className="text-muted-foreground/70">+</span>
-                        )}
-                        <Kbd className="font-mono text-[9px]">{p}</Kbd>
-                      </React.Fragment>
-                    ))}
-                  </KbdGroup>
-                  <span>swap</span>
-                  <span className="text-muted-foreground/60">·</span>
-                  <KbdGroup>
-                    <Kbd className="text-[9px]">
-                      {bridge.runtime.platform === "darwin" ? "⌘" : "Ctrl"}
-                    </Kbd>
-                    <span className="text-muted-foreground/70">+</span>
-                    <Kbd className="text-[9px]">Enter</Kbd>
-                  </KbdGroup>
-                </span>
-                <div className="flex shrink-0 items-center gap-1">
-                  {/* TODO: STT mic button disabled — re-enable when ERR_FAILED -2 is fixed
-                  {stt.isSupported && (
-                    <Button ... >
-                      {stt.listening ? <MicOff .../> : <Mic .../>}
-                    </Button>
-                  )}
-                  */}
+              <div className="relative min-h-18 max-h-[min(28vh,180px)]">
+                <Textarea
+                  autoFocus
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={`Paste ${labels.source} text…`}
+                  className="min-h-18 max-h-[min(28vh,180px)] resize-y pb-10 pr-26 font-mono text-xs leading-relaxed"
+                />
+                <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
                   <Button
                     type="button"
                     size="icon"
-                    variant="ghost"
+                    variant="secondary"
                     className="size-8"
                     onClick={() =>
                       ttsInput.speaking
@@ -233,21 +226,45 @@ export function TranslatePage() {
                     )}
                   </Button>
                   <Button
-                    size="sm"
-                    className="h-8 shrink-0 text-xs"
+                    size="icon"
+                    variant="default"
+                    className="size-8"
                     onClick={() => void handleTranslate()}
                     disabled={isPending || !input.trim()}
+                    aria-label="Translate"
+                    title="Translate"
                   >
                     {isPending ? (
-                      <Loader2
-                        data-icon="inline-start"
-                        className="animate-spin"
-                      />
+                      <Loader2 className="size-3.5 animate-spin" />
                     ) : (
-                      <Languages data-icon="inline-start" />
+                      <Languages className="size-3.5" />
                     )}
-                    {isPending ? "…" : "Translate"}
                   </Button>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="inline-flex max-w-[min(100%,14rem)] flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-muted-foreground sm:max-w-none">
+                  <span>{input.length} chars</span>
+                  <span className="text-muted-foreground/60">·</span>
+                  <KbdGroup className="inline-flex flex-wrap">
+                    {swapHotkeyParts.map((p, i) => (
+                      <React.Fragment key={i}>
+                        {i > 0 && (
+                          <span className="text-muted-foreground/70">+</span>
+                        )}
+                        <Kbd className="font-mono text-[9px]">{p}</Kbd>
+                      </React.Fragment>
+                    ))}
+                  </KbdGroup>
+                  <span>swap</span>
+                  <span className="text-muted-foreground/60">·</span>
+                  <KbdGroup>
+                    <Kbd className="text-[9px]">
+                      {bridge.runtime.platform === "darwin" ? "⌘" : "Ctrl"}
+                    </Kbd>
+                    <span className="text-muted-foreground/70">+</span>
+                    <Kbd className="text-[9px]">Enter</Kbd>
+                  </KbdGroup>
                 </div>
               </div>
             </CardContent>
@@ -262,14 +279,14 @@ export function TranslatePage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5 px-3 pb-2.5 pt-0">
-              <div className="relative min-h-[72px] max-h-[min(28vh,180px)]">
+              <div className="relative min-h-18 max-h-[min(28vh,180px)]">
                 <Textarea
                   readOnly
                   value={output}
                   placeholder="Translation appears here…"
                   disabled={isPending}
                   className={cn(
-                    "min-h-[72px] max-h-[min(28vh,180px)] resize-y font-mono text-xs leading-relaxed bg-muted/30",
+                    "min-h-18 max-h-[min(28vh,180px)] resize-y bg-muted/30 pb-10 pr-18 font-mono text-xs leading-relaxed",
                     isPending && "text-muted-foreground/40",
                   )}
                 />
@@ -283,65 +300,172 @@ export function TranslatePage() {
                     <span className="font-medium">Translating…</span>
                   </div>
                 )}
-              </div>
-              <div className="flex justify-end gap-1">
-                <div className="relative">
+                <div className="absolute bottom-2 right-2 flex items-center gap-1">
                   {showCopiedTip && (
                     <span
                       role="status"
-                      className="absolute bottom-full right-0 mb-1 rounded-md bg-foreground px-2 py-1 text-[10px] font-medium text-background shadow-md animate-in fade-in-0 zoom-in-95"
+                      className="absolute bottom-full right-0 mb-1 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[10px] font-medium text-background shadow-md animate-in fade-in-0 zoom-in-95"
                     >
                       Copied
                     </span>
                   )}
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="size-7"
-                      onClick={() =>
-                        ttsOutput.speaking
-                          ? ttsOutput.stop()
-                          : ttsOutput.speak(
-                              output,
-                              direction === "vi-en" ? "en" : "vi",
-                            )
-                      }
-                      disabled={!output}
-                      aria-label={
-                        ttsOutput.speaking
-                          ? "Stop speaking"
-                          : "Read translation aloud"
-                      }
-                      title={
-                        ttsOutput.speaking
-                          ? "Stop speaking"
-                          : "Read translation aloud"
-                      }
-                    >
-                      {ttsOutput.speaking ? (
-                        <VolumeX className="size-3.5" />
-                      ) : (
-                        <Volume2 className="size-3.5" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={handleCopy}
-                      disabled={!output}
-                      aria-label="Copy translation to clipboard"
-                    >
-                      <Copy data-icon="inline-start" />
-                      Copy
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    className="size-8"
+                    onClick={() =>
+                      ttsOutput.speaking
+                        ? ttsOutput.stop()
+                        : ttsOutput.speak(
+                            output,
+                            direction === "vi-en" ? "en" : "vi",
+                          )
+                    }
+                    disabled={!output}
+                    aria-label={
+                      ttsOutput.speaking
+                        ? "Stop speaking"
+                        : "Read translation aloud"
+                    }
+                    title={
+                      ttsOutput.speaking
+                        ? "Stop speaking"
+                        : "Read translation aloud"
+                    }
+                  >
+                    {ttsOutput.speaking ? (
+                      <VolumeX className="size-3.5" />
+                    ) : (
+                      <Volume2 className="size-3.5" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="size-8"
+                    onClick={handleCopy}
+                    disabled={!output}
+                    aria-label="Copy translation to clipboard"
+                    title="Copy translation"
+                  >
+                    <Copy className="size-3.5" />
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {details && (
+            <Card className="gap-0 border-dashed py-0 shadow-sm">
+              <CardHeader className="space-y-0 px-3 py-2 pb-1.5">
+                <CardTitle className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Word Insights
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 px-3 pb-3 pt-0 text-xs">
+                {(details.pronunciation || details.detectedSource) && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {details.detectedSource && (
+                      <Badge variant="outline">
+                        Detected: {details.detectedSource}
+                      </Badge>
+                    )}
+                    {formatConfidence(details.confidence) && (
+                      <Badge variant="outline">
+                        Confidence: {formatConfidence(details.confidence)}
+                      </Badge>
+                    )}
+                    {details.pronunciation && (
+                      <Badge variant="secondary">
+                        /{details.pronunciation}/
+                      </Badge>
+                    )}
+                  </div>
+                )}
+
+                {details.correctedText && (
+                  <p className="rounded-md border border-border/70 bg-muted/20 px-2 py-1.5 leading-relaxed">
+                    Suggested source text:{" "}
+                    <strong>{details.correctedText}</strong>
+                  </p>
+                )}
+
+                {details.alternatives.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Alternatives
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {details.alternatives.map((item) => (
+                        <Badge key={item} variant="outline">
+                          {item}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {details.lexicalGroups.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Lexical Meanings
+                    </p>
+                    {details.lexicalGroups.slice(0, 2).map((group) => (
+                      <div
+                        key={`${group.partOfSpeech}-${group.base}`}
+                        className="rounded-md border border-border/70 bg-muted/20 px-2 py-1.5"
+                      >
+                        <p className="font-semibold">
+                          {group.partOfSpeech}
+                          {group.base ? ` • ${group.base}` : ""}
+                        </p>
+                        {group.entries.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {group.entries.slice(0, 4).map((entry) => (
+                              <p key={entry.term} className="leading-relaxed">
+                                <span className="font-medium">
+                                  {entry.term}:
+                                </span>{" "}
+                                {entry.meanings.join(", ")}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {details.definitionGroups.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Definitions
+                    </p>
+                    {details.definitionGroups.slice(0, 1).map((group) => (
+                      <div
+                        key={`${group.partOfSpeech}-${group.base}`}
+                        className="rounded-md border border-border/70 bg-muted/20 px-2 py-1.5"
+                      >
+                        <p className="font-semibold">{group.partOfSpeech}</p>
+                        <div className="mt-1 space-y-1">
+                          {group.items.slice(0, 3).map((item) => (
+                            <p
+                              key={`${item.definition}-${item.example ?? ""}`}
+                              className="leading-relaxed"
+                            >
+                              {item.definition}
+                              {item.example ? ` (e.g. ${item.example})` : ""}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

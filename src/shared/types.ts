@@ -50,11 +50,45 @@ export interface TranslationRequest {
   text: string;
 }
 
+export interface TranslationTermMeaning {
+  term: string;
+  meanings: string[];
+}
+
+export interface TranslationLexicalGroup {
+  partOfSpeech: string;
+  terms: string[];
+  base: string;
+  entries: TranslationTermMeaning[];
+}
+
+export interface TranslationDefinitionItem {
+  definition: string;
+  example?: string;
+}
+
+export interface TranslationDefinitionGroup {
+  partOfSpeech: string;
+  base: string;
+  items: TranslationDefinitionItem[];
+}
+
+export interface TranslationDetails {
+  pronunciation?: string;
+  detectedSource?: string;
+  confidence?: number;
+  correctedText?: string;
+  alternatives: string[];
+  lexicalGroups: TranslationLexicalGroup[];
+  definitionGroups: TranslationDefinitionGroup[];
+}
+
 export interface TranslationResult {
   translation: string;
   sourceText: string;
   source: TranslateSource;
   target: LanguageCode;
+  details?: TranslationDetails;
 }
 
 export interface AppSettings {

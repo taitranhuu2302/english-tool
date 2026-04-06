@@ -26,6 +26,77 @@ describe("GoogleTranslateProvider", () => {
     expect(result.target).toBe("en");
   });
 
+  it("extracts rich details when dictionary data is available", async () => {
+    mockTranslate.mockResolvedValue({
+      text: "Professor",
+      textArray: ["Professor"],
+      pronunciation: "pro-fes-ser",
+      hasCorrectedLang: false,
+      src: "vi",
+      hasCorrectedText: true,
+      correctedText: "Giáo sư",
+      translations: [],
+      raw: [
+        [],
+        [
+          [
+            "noun",
+            ["giáo sư"],
+            [["giáo sư", ["professor", "academic"]]],
+            "professor",
+            1,
+          ],
+        ],
+        "vi",
+        null,
+        null,
+        [
+          [
+            "Professor",
+            null,
+            [["giáo sư", null, true, false, [10]]],
+            [[0, 9]],
+            "Professor",
+            0,
+            0,
+          ],
+        ],
+        0.98,
+        [],
+        [["vi"], null, [0.98], ["vi"]],
+        null,
+        null,
+        [
+          [
+            "noun",
+            [["a teacher of the highest rank.", "id", "Professor Goodwin"]],
+            "professor",
+            1,
+          ],
+        ],
+      ],
+    });
+
+    const { GoogleTranslateProvider } =
+      await import("../main/translation/google-translate-provider");
+    const provider = new GoogleTranslateProvider();
+    const result = await provider.translate({
+      source: "vi",
+      target: "en",
+      text: "Giáo sư",
+    });
+
+    expect(result.details?.detectedSource).toBe("vi");
+    expect(result.details?.pronunciation).toBe("pro-fes-ser");
+    expect(result.details?.correctedText).toBe("Giáo sư");
+    expect(result.details?.confidence).toBe(0.98);
+    expect(result.details?.alternatives).toContain("giáo sư");
+    expect(result.details?.lexicalGroups[0]?.partOfSpeech).toBe("noun");
+    expect(result.details?.definitionGroups[0]?.items[0]?.definition).toContain(
+      "highest rank",
+    );
+  });
+
   it("passes correct options to googletrans", async () => {
     mockTranslate.mockResolvedValue({ text: "Hello" });
     const { GoogleTranslateProvider } =
